@@ -48,9 +48,15 @@ func main() {
 	var filteredFiles []fs.DirEntry
 	for _, path := range files {
 		strName := path.Name()
-		if strName[len(strName)-4:] == ".jpg" || strName[len(strName)-5:] == ".jpeg" {
+		over5Length := len(strName) >= 5
+		if over5Length && (strName[len(strName)-4:] == ".jpg" || strName[len(strName)-5:] == ".jpeg") {
 			filteredFiles = append(filteredFiles, path)
 		}
+	}
+
+	if len(filteredFiles) == 0 {
+		fmt.Printf("No jpegs found in %v", *inDirFlag)
+		return
 	}
 
 	err = os.Mkdir(*outDirFlag, 0755)
