@@ -94,10 +94,10 @@ func main() {
 	var wg sync.WaitGroup
 	for _, path := range filteredFiles {
 		wg.Add(1)
-		go func(path fs.DirEntry, inDirFlag, outDirFlag string) {
+		go func(path fs.DirEntry) {
 			defer wg.Done()
-			process(path, inDirFlag, outDirFlag)
-		}(path, *inDirFlag, *outDirFlag)
+			process(path, *inDirFlag, *outDirFlag)
+		}(path)
 	}
 	wg.Wait()
 }
