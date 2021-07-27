@@ -7,6 +7,7 @@ import (
 	"image/jpeg"
 	"io/fs"
 	"os"
+	"sync"
 
 	"github.com/nfnt/resize"
 )
@@ -23,6 +24,31 @@ func getImageFromFilePath(filePath string) (image.Image, error) {
 
 func RemoveIndex(s []fs.DirEntry, index int) []fs.DirEntry {
 	return append(s[:index], s[index+1:]...)
+}
+
+func process(path fs.DirEntry, inDirFlag, outDirFlag string) {
+	img, err := getImageFromFilePath(inDirFlag + "/" + path.Name())
+
+	if err != nil {
+		fmt.Printf("Error opening file %v: %v", path.Name(), err)
+	}
+
+	bounds := img.Bounds()
+	dx := bounds.Max.X - bounds.Min.X
+	dy := bounds.Max.Y - bounds.Min.Y
+
+	newImage := resize.Thumbnail(uint(dx/2), uint(dy/2), img, resize.Bilinear)
+
+	f, err := os.Create(outDirFlag + "/R_" + path.Name())
+	if err != nil {
+		fmt.Printf("Error creating output file %v: %v", outDirFlag+"/R_"+path.Name(), err)
+		return
+	}
+	defer f.Close()
+	if err = jpeg.Encode(f, newImage, nil); err != nil {
+		fmt.Printf("failed to encode: %v", err)
+		return
+	}
 }
 
 func main() {
@@ -65,26 +91,13 @@ func main() {
 		return
 	}
 
+	var wg sync.WaitGroup
 	for _, path := range filteredFiles {
-		img, err := getImageFromFilePath(*inDirFlag + "/" + path.Name())
-
-		if err != nil {
-			fmt.Printf("Error opening file %v: %v", path.Name(), err)
-		}
-
-		bounds := img.Bounds()
-		dx := bounds.Max.X - bounds.Min.X
-		dy := bounds.Max.Y - bounds.Min.Y
-
-		newImage := resize.Thumbnail(uint(dx/2), uint(dy/2), img, resize.Bilinear)
-
-		f, err := os.Create(*outDirFlag + "/R_" + path.Name())
-		if err != nil {
-			fmt.Printf("Error creating output file %v: %v", *outDirFlag+"/R_"+path.Name(), err)
-		}
-		defer f.Close()
-		if err = jpeg.Encode(f, newImage, nil); err != nil {
-			fmt.Printf("failed to encode: %v", err)
-		}
+		wg.Add(1)
+		go func(path fs.DirEntry, inDirFlag, outDirFlag string) {
+			defer wg.Done()
+			process(path, inDirFlag, outDirFlag)
+		}(path, *inDirFlag, *outDirFlag)
 	}
+	wg.Wait()
 }
